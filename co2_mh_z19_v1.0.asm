@@ -125,12 +125,12 @@ hco2:              .byte  1        ; Старший регистр для хра
 count_rx_uart:     .byte  1        ; Счетчик полученных байт по UART
 count_tx_uart:     .byte  1        ; Счетчик переданных по UART байт
 flag_MH_init:      .byte  1        ; Флаг необходимости установки диапазона MH-Z19
-press_twi:         .bate  3        ; Регистры для хранения знач. давл. от LPS331AP (POUT_XL,POUT_L,POUT_H)
-lpress:            .bate  1        ; Младший байт для хранения значения давления
-hpress:            .bate  1        ; Старший байт для хранения значения давления
-sad_w:             .bate  1        ; Команда адреса датчика LPS331AP+ запись байта
-sad_r:             .bate  1        ; Команда адреса датчика LPS331AP+ чтение байта
-sub:               .bate  1        ; Команда адреса ячейки памяти датчика LPS331AP для чтения
+press_twi:         .byte  3        ; Регистры для хранения знач. давл. от LPS331AP (POUT_XL,POUT_L,POUT_H)
+lpress:            .byte  1        ; Младший байт для хранения значения давления
+hpress:            .byte  1        ; Старший байт для хранения значения давления
+sad_w:             .byte  1        ; Команда адреса датчика LPS331AP+ запись байта
+sad_r:             .byte  1        ; Команда адреса датчика LPS331AP+ чтение байта
+sub:               .byte  1        ; Команда адреса ячейки памяти датчика LPS331AP для чтения
 
 ; FLASH ===================================================================================================
 	.CSEG	
@@ -144,7 +144,7 @@ sub:               .bate  1        ; Команда адреса ячейки п
     rjmp    OVF0                   ; Timer/Counter0 Overflow
     rjmp    URXC                   ; USART, Rx Complete
     reti    ;rjmp    URXC0         ; For compatibility
-    rjmp    UDRE                   ; USART Data Register Empty
+    rjmp    TX_UART                ; USART Data Register Empty
     reti    ;rjmp    UDRE0         ; For compatibility
     reti    ;rjmp    UTXC          ; USART, Tx Complete
     reti    ;rjmp    UTXC0         ; For compatibility
@@ -196,13 +196,12 @@ RESET:
     
     ldi    temp, 0                 ; Обнуление регистров флагов этапа получения значения
     sts    flag_ex_stage, temp     ; температуры от датчика DS18B20
-    sts    fract_part, temp        ; Обнуляем значения переменных датчика температуры
     sts    integer_temp, temp      ;
     sts    indication_sign, temp   ;
     sts    ltemperature, temp
     sts    htemperature, temp
-    sts    count_tx_uart           ; Обнуление счетчика переданных/принятых байт для MH-Z19
-    sts    count_rx_uart           ;
+    sts    count_tx_uart, temp     ; Обнуление счетчика переданных/принятых байт для MH-Z19
+    sts    count_rx_uart, temp     ;
 
     ldi    temp, 1                 ; Значение при инициализации о необходимости установки
     sts    flag_MH_init, temp      ; диапазона измерения MH-Z19
@@ -214,19 +213,6 @@ RESET:
     ldi    temp, 0xBE              ; Сохраняем в переменной команду запроса на получение значения
     sts    tx_request_temp, temp   ; температуры от датчика DS18B20
 
-    ldi    temp, 0xFF              ;
-    sts    start_byte, temp        ; Код стартового байта для начала передачи команды к MH-Z19
-    ldi    temp, 0x01              ;
-    sts    sensor_num, temp        ; Код датчика MH-Z19 (всегда 0x01)
-    ldi    temp, 0x86              ;
-    sts    request_command, temp   ; Команда на передачу данных от MH-Z19
-    ldi    temp, 0x99              ;
-    sts    range_command, temp     ; Команда для изменения диапазона до 5000 PPM (0x99)
-    ldi    temp, 0x00              ;
-    sts    empty_command, temp     ; Команда пустышка 0x00
-    ldi    temp, 0x79              ;
-    sts    checksum_command, temp  ; Контрольная сумма для команды 0x86 (0x79)
-
     ldi    temp, 0xb8              ; Команда SAD+W для LPS331AP (адрес датчика с битом записи)
     sts    sad_w, temp             ;
     ldi    temp, 0xb9              ; Команда SAD+R для LPS331AP (адрес датчика с битом чтения)
@@ -237,13 +223,13 @@ RESET:
 Uart_init:
     ldi     temp, low(bauddivider) ; Инициализация UART
     out     UBRRL, temp            ;
-    ldi     temp, high(bauddevider);
+    ldi     temp, high(bauddivider);
     out     UBRRH, temp            ;
 
     ldi     temp, 0                ; Обнуляем UCSRA, без удвоения скорости обмена
     out     UCSRA, temp            ;
     
-    ldi     temp, (1<<URSEL)|(1<<UCSZ0)|(1<<UCSZ1)
+    ldi     temp, (1<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
     out     UCSRC, temp            ; Формат кадра- 8 бит
 
 
@@ -356,7 +342,7 @@ Stop_rx:
 
 ;===========================================================================================================
 ;Обработка прерывания по опустошению буфера UART
-UDRE:
+TX_UART:
     sbi     PORTD, 4            ; Вкл. светодиода индикаци передачи данных по UART
     PUSH    temp                ; Сохраняем значения временных переменных
     PUSH    temp1               ;
@@ -773,7 +759,7 @@ Tx_Byte_Start_Conv:
     out     TCCR1B, temp       ; задержка ~1 сек.
 
 ; Запуск передачи данных по UART к датчику MH-Z19
-    rcall   Start_tx_UART      ; Вызов п/п на передачу команды по UART к датчику MH-Z190
+;    rcall   Start_tx_UART      ; Вызов п/п на передачу команды по UART к датчику MH-Z190
     ldi     temp, (0<<RXEN)|(1<<TXEN)|(0<<RXCIE)|(1<<TXCIE)|(1<<UDRIE) 
     out     UCSRB, temp         ; Разрешаем передачу, прерывания по опустошению UDR
 
@@ -968,7 +954,7 @@ Neg_Temp:
 
     rcall    Bin2BCD16             ; Переход на п/п преобразования числа в BCD
     sts      integer_temp, tBCD0   ; Сохраняем упакованное значение температуры для хранения
-    rjmp    Co2_Ans                ; Переход к чтению значения АЦП (от датчика СО2)
+    rjmp     Main                  ; Переход к чтению значения АЦП (от датчика СО2)
 
 Convert_Neg_Temp:
     lds     temp, negative_temp    ; Записываем код знака минус в переменную для индикации
@@ -1050,11 +1036,11 @@ Decoder_BCD:
 ;    rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
 ;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
 
-    sts     temp, lco2          ; Данные для распаковки значенияы BCD0 
+    lds     temp, lco2          ; Данные для распаковки значенияы BCD0 
     rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
     rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
 	
-    sts     temp, hco2          ; Данные для распаковки значения  BCD1
+    lds     temp, hco2          ; Данные для распаковки значения  BCD1
     rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
     rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
 
