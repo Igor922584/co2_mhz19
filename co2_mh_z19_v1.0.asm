@@ -1042,13 +1042,21 @@ Decoder_BCD:
     ldi     temp, 0b00000001    ; Восстанавливаем значение счетчика включаемого индикатора
     sts     led_counter, temp   ;
 
-;    mov     temp, tBCD0         ; Данные для распаковки значенияы BCD0 
+;    sts     temp, lpress        ; Данные для распаковки значенияы BCD0 
 ;    rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
 ;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
 	
-;    mov     temp, tBCD1         ; Данные для распаковки значения  BCD1
+;    sts     temp, hpress        ; Данные для распаковки значения  BCD1
 ;    rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
 ;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
+
+    sts     temp, lco2          ; Данные для распаковки значенияы BCD0 
+    rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
+    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
+	
+    sts     temp, hco2          ; Данные для распаковки значения  BCD1
+    rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
+    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
 
 ;    lds     temp, fract_part    ; Выведение на индикатор дробной части значения температуры
     sts     digit,temp          ;
