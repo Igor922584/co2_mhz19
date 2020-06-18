@@ -1,6 +1,6 @@
 ; Имя файла: co2_mh_z19_v1.0.asm
-; Created: 18.06.2020 18:57
-; Modified: 
+; Created: 11.02.2020 22:16
+; Modified: 26.04.20, 04.05.20, 05.05.20, 09.05.20,
 ; Author : Игорь
 ; Для AVR: ATtiny4313 (ATtiny2313)                                                     
 ; Тактовая частота: 8 Мгц                                                
@@ -24,15 +24,20 @@
 ; PD1- TXD->RX (подкл. через транзистор, логика 3,3 В).
 ;
 ; Подключение датчика LPS331AP по интерфейсу TWI:
-; PB5- SDA-> вход/выход данных LPS331AP.
-; PB7- SCL-> выход тактового сигнала TWI.
+; PD6- SDA-> вход/выход данных LPS331AP.
+; PD2- SCL-> выход тактового сигнала TWI.
 ;
 ; Подключение датчика температуры  DS18B20 по 1-Wire
 ; PB3- 1-Wire.
 ; PB4- отключение питания датчика температуры.
 ; 
+; SPI для внутрисхемного программирования
+; PB5- MOSI
+; PB6- MISO
+; PB7- SCK
+;
 ; Светодиоды для контроля обмена данными с датчиками:
-; PB6- контроль TWI.
+; PB7- контроль TWI.
 ; PD3- контроль UART RX.
 ; PD4- контроль UART TX.
 ; PD5- контроль 1-Wire.
@@ -164,17 +169,17 @@ RESET:
     out    EIFR, temp              ; Индикация флагов внешних прерваний
     out    TIFR, temp              ; Флаги совпадения счетчика таймера Т1: 1А, 1В, 1С
 
-    ldi    temp, 0b11110111        ; На выход PB0->MOSI, PB1->RCLK (защелка SPI), PB2->SRCLK (такт. SPI)
-    out    DDRB, temp              ; PB5->SDA (TWI), PB7->SCL (TWI), PB3->DA (1-Ware на вход)
+    ldi    temp, 0b10010111        ; На выход PB0->MOSI, PB1->RCLK (защелка SPI), PB2->SRCLK (такт. SPI)
+    out    DDRB, temp              ; PB7-> индикация TWI. На вход: PB5, PB6, PB3->DA (1-Ware)
 	
-    ldi    temp, 0b10100000        ; Выходы при включении в "0" кроме выходов TWI, которые в "1"
+    ldi    temp, 0b00000000        ; Выходы при включении в "0" кроме выходов TWI, которые в "1"
     out    PortB, temp             ; Подт. резист. не подключаем (предусмотреть в схеме)
 
-    ldi    temp, 0b00111000        ; PD3, PD4, PD5 индикация состояния передачи данных к датчикам
-    out    DDRD, temp              ; ставим на выход
+    ldi    temp, 0b01111100        ; На выход PD2-> SCL (TWI), PD6-> SDA (TWI),
+    out    DDRD, temp              ; PD3, PD4, PD5 индикация обмена данными с датчиками
 
-    ldi    temp, 0b00000000        ; Выходы при включении в "0" 
-    out    PortD, temp             ; 
+    ldi    temp, 0b01000100        ; Выходы  PD3, PD4, PD6 при включении в "0" 
+    out    PortD, temp             ; Выходы TWI-> PD2, PD6 при включении в "1"
 
     ldi    temp, 0b00000101        ; Источник тактового сигнала, значение предделителя clk_i.o/1024
     out    TCCR0B, temp            ; Записываем конфигурационные биты в управляющий
@@ -410,7 +415,7 @@ Range_set_co2:
 ;======================================================================================================
 ; Получение значения атмосферного давления от датчика LPS331AP по TWI, программная реализация протокола
 Atm_Press:
-    sbi     PORTB, 6               ; Включение светодиода индикации передачи данных по TWI
+    sbi     PORTB, 7               ; Включение светодиода индикации передачи данных по TWI
     rcall   Start_TWI              ; Старт на шину TWI
 
     lds     data_in_out, sad_w     ; Загружаем команду SAD+W в регистр РОН ввода/вывода
@@ -458,7 +463,7 @@ TWI_to_BCD:
     
     ldi     temp, 0b00001000        ; Устанавливаем флаг в позицию ожидания окончания преобразования
     sts     flag_ex_stage, temp     ; температуры датчиком DS18B20
-    cbi     PORTB, 6                ; Откл. светодиода индикации передачи данных по TWI
+    cbi     PORTB, 7                ; Отключение светодиода индикации передачи данных по TWI
     rjmp    Main
 
 ; Пауза для обеспечения времени высокого/низкого уровня SCL 1,5 мкс
@@ -471,47 +476,47 @@ TWI_Pause_Loop:
 
 ; Старт TWI: SDA в "1" -> 1.5 мкс -> SDA в "0" -> 1.5 мкс -> SCL в "0"
 Start_TWI:
-    sbi     PORTB, 5               ; SDA TWI в "1"
-    sbi     PORTB, 7               ; SCL TWI в "1"
+    sbi     PORTD, 6               ; SDA TWI в "1"
+    sbi     PORTD, 2               ; SCL TWI в "1"
     rcall   TWI_Pause              ; Ждем 1.5 мкс
-    cbi     PORTB, 5               ; Ставим вывод SDA TWI в "0"
+    cbi     PORTD, 6               ; Ставим вывод SDA TWI в "0"
     rcall   TWI_Pause              ; Подождали 1.5 мкс
-    cbi     PORTB, 7               ; Линию тактового сигнала в "0"
+    cbi     PORTD, 2               ; Линию тактового сигнала в "0"
     rcall   TWI_Pause
     ret
 
 ; Стоп TWI: линию тактового сигнала в "1", ждем 1.5 мкс, линию данных в "1"
 Stop_TWI:
-    cbi     PORTB, 5               ; SDA TWI в "0"
+    cbi     PORTD, 6               ; SDA TWI в "0"
     rcall   TWI_Pause              ; 
-    sbi     PORTB, 7               ; SCL TWI в "1"
+    sbi     PORTD, 2               ; SCL TWI в "1"
     rcall   TWI_Pause              ; Ждем 1.5 мкс
-    sbi     PORTB, 5               ; Ставим вывод SDA TWI в "0"
+    sbi     PORTD, 6               ; Ставим вывод SDA TWI в "0"
     rcall   TWI_Pause              ; 1.5 мкс
     ret
 
 ; Повторный старт TWI: (после команды SAK линию SDA поставить в "1" линию  SCL поставить в "0")
 Rep_Start_TWI:
-    sbi     PORTB, 5             ; SDA  в "1"
+    sbi     PORTD, 6             ; SDA  в "1"
     rcall   TWI_Pause            ; ждем 1,5 мкс
-    sbi     PORTB, 7             ; SCL в "1"
+    sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Ждем 1,5 мкс
-    cbi     PORTB, 5             ; Команда повторный старт
+    cbi     PORTD, 6             ; Команда повторный старт
     rcall   TWI_Pause            ; ждем 1,5 мкс
-    cbi     PORTB, 7             ; SCL в "0"   
+    cbi     PORTB, 2             ; SCL в "0"   
     rcall   TWI_Pause            ;
     ret
 
-; Проверка ответа датчика по TWI. PORTB5 на вход, SCL в "1", ждем 1,5 мкс, читаем состояние SDA
+; Проверка ответа датчика по TWI. PORTD6 (SDA) на вход, SCL в "1", ждем 1,5 мкс, читаем состояние SDA
 Sak_TWI:
-    cbi     DDRB, 5              ; PB5 на вход
-    sbi     PORTB, 7             ; SCL в "1"
+    cbi     DDRD, 6              ; PD6 (SDA) на вход
+    sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Ждем 1,5 мкс
-    sbis    PinB, 5              ; Читаем ответ SAK (передаваемый от LSP331AP)
+    sbis    PinD, 6              ; Читаем ответ SAK (передаваемый от LSP331AP)
     rjmp    Er_Sak               ; В PB5 "1"- переход на п\п обработки ошибки    
-    cbi     PORTB,7              ; Шину SCL в "0"
+    cbi     PORTD, 2             ; Шину SCL в "0"
     rcall   TWI_Pause            ; ждем 1,5 мкс
-    sbi     DDRB, 5              ; SDA на выход
+    sbi     DDRD, 6              ; SDA на выход
     ret
 
 ; Обработка ошибки ответа от датчика LSP331AP
@@ -522,42 +527,42 @@ Er_Sak:
 
 ; Ответ контроллера о получении байта
 Mak_TWI:
-    cbi     PORTB, 5             ; SDA в "0"
+    cbi     PORTD, 6             ; SDA в "0"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
-    sbi     PORTB, 7             ; SCL в "1"
+    sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
-    cbi     PORTB, 7             ; SCL в "0"
+    cbi     PORTD, 2             ; SCL в "0"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
     ret
 
 ; Ответ контроллера о прекращении получения данных
 NMak_TWI:
-    sbi     PORTB, 5             ; SDA в "1"
+    sbi     PORTD, 6             ; SDA в "1"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
-    sbi     PORTB, 7             ; SCL в "1"
+    sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
-    cbi     PORTB, 7             ; SCL в "0"
+    cbi     PORTD, 2             ; SCL в "0"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
     ret
 
 ; Передача байта по шине TWI
-TWI_Write:   ; Бит на выход PB5 (SDA), затем поднимаем SCL (PB7), держим линию 1.5 мкс, опускаем SCL 
+TWI_Write:   ; Бит на выход PD6 (SDA), затем поднимаем SCL (PD2), держим линию 1.5 мкс, опускаем SCL 
     ldi     tx_rx_count, 8      ; Количество передаваемых по USI бит
 		
 TX_TWI_Transfer_Loop:
     lsl     data_in_out          ; Старший бит в перенос
     brcc    TX_TWI_PUT_0         ; Если в переносе 0, то перейти на метку PUT_0
-    sbi     PORTB, 5             ; В перносе 1 ставим высокий уровень PB5 (SDA)
+    sbi     PORTD, 6             ; В перносе 1 ставим высокий уровень PD6 (SDA)
     rjmp    STROB                ; Переход к метке выдачи тактирующего строба
 
 TX_TWI_PUT_0:
-    cbi     PORTB, 5             ; В переносе 0, ставим низкий уровень PB5 (SDA)
+    cbi     PORTD, 6             ; В переносе 0, ставим низкий уровень PD6 (SDA)
 
 TX_TWI_STROB:			
     rcall   TWI_Pause            ; Пауза 1,5 мкс после выставления состояния линии SDA
-    sbi     PORTB, 7             ; Ставим  вывод тактового сигнала в 1
+    sbi     PORTD, 2             ; Ставим  вывод тактового сигнала в 1
     rcall   TWI_Pause            ; Ждем 1,5 мкс для передачи бита
-    cbi     PORTB, 7             ; Опускаем линию тактового сигнала
+    cbi     PORTD, 2             ; Опускаем линию тактового сигнала
     rcall   TWI_Pause            ; Ждем 1,5 мкс 
     dec     tx_rx_count          ; Декремент счетчика передаваемого бита
     brne    TX_TWI_Transfer_Loop ; Если счетчик битов больше 0, возвращаемся к началу цикла передачи
@@ -566,13 +571,13 @@ TX_TWI_STROB:
 ; Читаем данные от датчика
 TWI_Read:
     ldi     tx_rx_count, 8       ; Количество принимаемых бит
-    cbi     DDRB, 5              ; PB5 на вход
+    cbi     DDRD, 6              ; PB5 на вход
 
 Rx_TWI_M1:
-    sbi     PORTB, 7             ; Ставим  вывод тактового сигнала в 1
+    sbi     PORTD, 2             ; Ставим  вывод тактового сигнала в 1
     rcall   TWI_Pause            ; Ждем 1,5 мкс для чтения состояния входа и получения бита
  
-    sbic    PinB, 5              ; Читаем бит PB5 (передаваемый от LSP331AP бит)
+    sbic    PinD, 6              ; Читаем бит PD6 (передаваемый от LSP331AP бит)
     rjmp    Rx_TWI_1_bit_test    ; В PB5 "1"- переход на п\п установки "1" во флаг переноса SREG
 
     clc                          ; В переносе 0, записываем данные в РОН приема/передачи
@@ -584,14 +589,14 @@ Rx_TWI_1_bit_test:
     ror    data_in_out    
 
 Rx_TWI_M2:
-    cbi     PORTB, 7             ; Опускаем линию тактового сигнала
+    cbi     PORTD, 2             ; Опускаем линию тактового сигнала
     rcall   TWI_Pause            ; Ждем 1,5 мкс 
     dec     tx_rx_count          ; Декремент счетчика передаваемого бита
     brne    Rx_TWI_M1            ; Если счетчик битов больше 0, возвращаемся к началу цикла приема    
 
-    cbi     PORTB, 7             ; Опускаем линию тактового сигнала
+    cbi     PORTD, 2             ; Опускаем линию тактового сигнала
     rcall   TWI_Pause            ; Ждем 1,5 мкс 
-    sbi     DDRB, 5              ; Ставим PB5 на выход
+    sbi     DDRD, 6              ; Ставим PD6 на выход
     ret
 
 ; ===========================================================================================================
