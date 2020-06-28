@@ -98,10 +98,10 @@
 .def	fbinH = r17           ; Binary value High byte
 .def	cnt16a = r18          ; Loop counter
 .def	tmp16a = r19          ; temporary value
-.def	temp1 = r24           ; Буфер 1
-.def	temp = r25            ; Буфер 0
-.def	tx_rx_count = r21     ; Счетчик количества переданных битов по 1-wire
-.def	data_in_out = r22     ; Передаваемое/принимаемое значение по 1-wire 
+.def	temp1 = r22           ; Буфер 1
+.def	temp = r23            ; Буфер 0
+.def	tx_rx_count = r20     ; Счетчик количества переданных битов по 1-wire
+.def	data_in_out = r21     ; Передаваемое/принимаемое значение по 1-wire 
 
 ; RAM =====================================================================================================
 	.DSEG								
@@ -144,7 +144,7 @@ sub:               .byte  1        ; Команда адреса ячейки п
     reti    ;rjmp    INT1          ; External Interrupt Request 1
     reti    ;rjmp    ICP1          ; Timer/Counter1 Capture Event
     reti    ;rjmp    OC1A          ; Timer/Counter1 Compare Match A
-    reti    ;rjmp    OC1           ; For compatibility
+;   reti    ;rjmp    OC1           ; For compatibility
     rjmp    OVF1                   ; Timer/Counter1 Overflow
     rjmp    OVF0                   ; Timer/Counter0 Overflow
     rjmp    URXC                   ; USART, Rx Complete
@@ -207,6 +207,17 @@ RESET:
     sts    htemperature, temp
     sts    count_tx_uart, temp     ; Обнуление счетчика переданных/принятых байт для MH-Z19
     sts    count_rx_uart, temp     ;
+
+; Стартовое значение на индикаторах
+    ldi    temp, 3                 ; Для теста, потом обнулить
+    sts    lco2, temp              ;
+    ldi    temp, 4                 ;
+    sts    hco2, temp              ;
+    ldi    temp, 5                 ;
+    sts    integer_temp, temp      ;
+    ldi    temp, 0                 ;
+    sts    lpress, temp            ;
+    sts    hpress, temp            ;
 
     ldi    temp, 1                 ; Значение при инициализации о необходимости установки
     sts    flag_MH_init, temp      ; диапазона измерения MH-Z19
@@ -273,6 +284,13 @@ MHZ_co2_read:
 ; ===========================================================================================================
 ; Обработка прерывания переполнения таймера счетчика Т0
 OVF0:
+;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+; Временный код
+    sbi PortB, 7
+; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
     PUSH    temp                ; Сохраняем значения временных переменных
     in      temp, SREG		;
     PUSH    temp                ;
@@ -284,6 +302,13 @@ OVF0:
     POP     temp                ; Восстанавливаем значение временных переменных
     out     SREG, temp          ;
     POP     temp                ;
+
+;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+; Временный код
+    cbi PortB, 7
+; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
     reti
 
 ; ===========================================================================================================
@@ -1050,19 +1075,19 @@ Decoder_BCD:
     rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
 
 ;    lds     temp, fract_part    ; Выведение на индикатор дробной части значения температуры
-    sts     digit,temp          ;
-    rcall   Decoder   
+;    sts     digit,temp          ;
+;    rcall   Decoder   
                                 ;
     lds     temp, integer_temp  ; Выведение на индикатор целой части значения температуры
     rcall   Unpacking_BCD       ;
-    lds     temp, ldigit        ; Добавляем знак "." для индикации десятичной точки
+;    lds     temp, ldigit        ; Добавляем знак "." для индикации десятичной точки
 ;    subi    temp, -10           ;
-    sts     ldigit, temp        ;
+;    sts     ldigit, temp        ;
     rcall   Transfer_BCD        ;
 
-    rcall   Led_On                       ; Вызов п/п изменения включаемого индикатора
-    lds     data_in_out, indication_sign ; Выведение на индикатор знака "-" при отр. знач. темп.
-    rcall   SPI_Transfer                 ;
+;    rcall   Led_On                       ; Вызов п/п изменения включаемого индикатора
+;    lds     data_in_out, indication_sign ; Выведение на индикатор знака "-" при отр. знач. темп.
+;    rcall   SPI_Transfer                 ;
     sbi     PORTB, 1            ; Ставим защелку сдвигового регистра в 1 для фиксации значения
     cbi     PORTB, 1            ; Формируем отрицательный импульс на защелку сдвиг. регистра
     ret
@@ -1141,7 +1166,7 @@ Led_On_Pause:
     ldi     temp, 100 
 Led_On_Pause_Loop:
     subi    temp, 1
-    brne    Led_On_Pause_Loop        ; Если отчет паузф не закончен, переход к началу цикла
+    brne    Led_On_Pause_Loop        ; Если отчет паузы не закончен, переход к началу цикла
     ret
 
 ; ===============================================================================================================
