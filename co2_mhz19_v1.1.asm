@@ -139,29 +139,25 @@ sub:               .byte  1        ; Команда адреса ячейки п
 
 ; FLASH ===================================================================================================
 	.CSEG	
-    rjmp    RESET                  ; Переход на начало программы
-    reti    ;rjmp    INT0          ; External Interrupt Request 0
-    reti    ;rjmp    INT1          ; External Interrupt Request 1
-    reti    ;rjmp    ICP1          ; Timer/Counter1 Capture Event
-    reti    ;rjmp    OC1A          ; Timer/Counter1 Compare Match A
-;   reti    ;rjmp    OC1           ; For compatibility
-    rjmp    OVF1                   ; Timer/Counter1 Overflow
-    rjmp    OVF0                   ; Timer/Counter0 Overflow
-    rjmp    URXC                   ; USART, Rx Complete
-    reti    ;rjmp    URXC0         ; For compatibility
-    rjmp    TX_UART                ; USART Data Register Empty
-    reti    ;rjmp    UDRE0         ; For compatibility
-    reti    ;rjmp    UTXC          ; USART, Tx Complete
-    reti    ;rjmp    UTXC0         ; For compatibility
-    reti    ;rjmp    ACI           ; Analog Comparator
-    reti    ;rjmp    PCI           ;
-    reti    ;rjmp    OC1B          ; 
-    reti    ;rjmp    OC0A          ; 
-    reti    ;rjmp    OC0B          ; 
-    reti    ;rjmp    USI_START     ; USI Start Condition
-    reti    ;rjmp    USI_OVF       ; USI Overflow
-    reti    ;rjmp    ERDYaddr      ; 
-    reti    ;rjmp    WDTaddr       ; Watchdog Timer Overflow
+    rjmp    RESET                  ; 0x0000 Переход на начало программы
+    reti    ;rjmp    INT0          ; 0x0001 External Interrupt Request 0
+    reti    ;rjmp    INT1          ; 0x0002 External Interrupt Request 1
+    reti    ;rjmp    ICP1          ; 0x0003 Timer/Counter1 Capture Event
+    reti    ;rjmp    OC1A          ; 0x0004 Timer/Counter1 Compare Match A
+    rjmp    OVF1                   ; 0x0005 Timer/Counter1 Overflow
+    rjmp    OVF0                   ; 0x0006 Timer/Counter0 Overflow
+    rjmp    RX_UART                ; 0x0007 USART, Rx Complete
+    reti    ;rjmp    URXC0         ; 0x0008 UDRE Data register empty
+    rjmp    TX_UART                ; 0x0009 USART, Tx Complete
+    reti    ;rjmp    ANALOG_COMP   ; 0x000A Analog Comparator 
+    reti    ;rjmp    PCINT         ; 0x000B Pin change interrupt
+    reti    ;rjmp    TIMER1_COMPB  ; 0x000C T1 compare match B
+    reti    ;rjmp    TIMER0_COMPA  ; 0x000D T0 compare match A
+    reti    ;rjmp    TIMER0_COMPB  ; 0x000E T0 compare match B
+    reti    ;rjmp    USI_START     ; 0x000F USI start
+    reti    ;rjmp    USI_OVF       ; 0x0010 USI overflow
+    reti    ;rjmp    EE_READY      ; 0x0011 EEPROM ready
+    reti    ;rjmp    WDT_OVF       ; 0x0012 Watchdog timer overflow
 									
 ; Init ===================================================================================================
 RESET:
@@ -315,7 +311,7 @@ OVF1:
 
 ;===========================================================================================================
 ; Обработка прерывания на прием по UART
-URXC:
+RX_UART:
     sbi     PORTD, 3            ; Вкл. светодиода индикации приема данных по UART
     PUSH    temp                ; Сохраняем значения временных переменных
     PUSH    temp1               ;
