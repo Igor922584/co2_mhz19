@@ -135,7 +135,7 @@ lpress:            .byte  1        ; Младший байт для хранен
 hpress:            .byte  1        ; Старший байт для хранения значения давления
 sad_w:             .byte  1        ; Команда адреса датчика LPS331AP+ запись байта
 sad_r:             .byte  1        ; Команда адреса датчика LPS331AP+ чтение байта
-sub:               .byte  1        ; Команда адреса ячейки памяти датчика LPS331AP для чтения
+twi_sub:           .byte  1        ; Команда адреса ячейки памяти датчика LPS331AP для чтения
 
 ; FLASH ===================================================================================================
 	.CSEG	
@@ -230,7 +230,7 @@ RESET:
     ldi    temp, 0xb9              ; Команда SAD+R для LPS331AP (адрес датчика с битом чтения)
     sts    sad_r, temp             ;
     ldi    temp, 0x28              ; Команда для LPS331AP (адрес ячейки памяти для чтения)
-    sts    sub, temp               ;
+    sts    twi_sub, temp           ;
 
 Uart_init:
     ldi     temp, low(bauddivider) ; Инициализация UART
@@ -429,10 +429,10 @@ Atm_Press:
     rcall   TWI_Write
     rcall   Sak_TWI
 
-    lds     data_in_out, sub       ; Загружаем команду запроса адреса ячейки памяти SUB в РОН
+    lds     data_in_out, twi_sub   ; Загружаем команду запроса адреса ячейки памяти SUB в РОН
     rcall   TWI_Write
     rcall   Sak_TWI
-    rcall   Rep_Start_TWI
+    rcall   Start_TWI    
 
     lds     data_in_out, sad_r     ; Загружаем команду SAD+R в регистр РОН ввода/вывода
     rcall   TWI_Write
@@ -471,9 +471,6 @@ TWI_to_BCD:
     ldi     temp, 0b00000000        ; Цикл запроса данных от датчиков завершен
     sts     flag_ex_stage, temp     ; 
 
-;    ldi     temp, 0b00000010       ; Разрешение прерывания по переполнению таймера Т0
-;    OUT     TIMSK, temp            ;
-
     cbi     PORTB, 7                ; Отключение светодиода индикации передачи данных по TWI
     rjmp    Main
 
@@ -506,18 +503,6 @@ Stop_TWI:
     rcall   TWI_Pause              ; 1.5 мкс
     ret
 
-; Повторный старт TWI: (после команды SAK линию SDA поставить в "1" линию  SCL поставить в "0")
-Rep_Start_TWI:
-    sbi     PORTD, 6             ; SDA  в "1"
-    rcall   TWI_Pause            ; ждем 1,5 мкс
-    sbi     PORTD, 2             ; SCL в "1"
-    rcall   TWI_Pause            ; Ждем 1,5 мкс
-    cbi     PORTD, 6             ; Команда повторный старт
-    rcall   TWI_Pause            ; ждем 1,5 мкс
-    cbi     PORTB, 2             ; SCL в "0"   
-    rcall   TWI_Pause            ;
-    ret
-
 ; Проверка ответа датчика по TWI. PORTD6 (SDA) на вход, SCL в "1", ждем 1,5 мкс, читаем состояние SDA
 Sak_TWI:
     cbi     DDRD, 6              ; PD6 (SDA) на вход
@@ -539,6 +524,7 @@ Er_Sak:
 ; Ответ контроллера о получении байта
 Mak_TWI:
     cbi     PORTD, 6             ; SDA в "0"
+    sbi     DDRD, 6              ; SDA на выход
     rcall   TWI_Pause            ; Пауза 1,5 мкс
     sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
@@ -549,6 +535,7 @@ Mak_TWI:
 ; Ответ контроллера о прекращении получения данных
 NMak_TWI:
     sbi     PORTD, 6             ; SDA в "1"
+    sbi     DDRD, 6              ; SDA на выход
     rcall   TWI_Pause            ; Пауза 1,5 мкс
     sbi     PORTD, 2             ; SCL в "1"
     rcall   TWI_Pause            ; Пауза 1,5 мкс
@@ -607,7 +594,7 @@ Rx_TWI_M2:
 
     cbi     PORTD, 2             ; Опускаем линию тактового сигнала
     rcall   TWI_Pause            ; Ждем 1,5 мкс 
-    sbi     DDRD, 6              ; Ставим PD6 на выход
+;    sbi     DDRD, 6              ; Ставим PD6 на выход
     ret
 
 ; ===========================================================================================================
