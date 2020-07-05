@@ -229,7 +229,7 @@ RESET:
     sts    sad_w, temp             ;
     ldi    temp, 0xb9              ; Команда SAD+R для LPS331AP (адрес датчика с битом чтения)
     sts    sad_r, temp             ;
-    ldi    temp, 0x28              ; Команда для LPS331AP (адрес ячейки памяти для чтения)
+    ldi    temp, 0x68              ; Команда для LPS331AP (адрес ячейки памяти для чтения)
     sts    twi_sub, temp           ;
 
 Uart_init:
@@ -244,7 +244,23 @@ Uart_init:
     ldi     temp, (0<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
     out     UCSRC, temp            ; Формат кадра- 8 бит
 
+; TWI init LPS331AP
+    sbi     PORTB, 7               ; Включение светодиода индикации передачи данных по TWI
+    rcall   Start_TWI              ; Старт на шину TWI
 
+    lds     data_in_out, sad_w     ; Загружаем команду SAD+W в регистр РОН ввода/вывода
+    rcall   TWI_Write
+    rcall   Sak_TWI
+
+    ldi     data_in_out, 0x20      ; Загружаем адрес конфигурационнй ячейки LPS331AP
+    rcall   TWI_Write              ; CTRL_REG1
+    rcall   Sak_TWI                ;
+
+    ldi     data_in_out, 0b10010000 ; Загружаем значение конфигурационных битоа 
+    rcall   TWI_Write               ; измерение давления раз а секунду
+    rcall   Sak_TWI
+    rcall   Stop_TWI                ; 
+    
     ldi    temp, 0b00000010        ; Разрешение прерывания по переполнению таймера Т0
     OUT    TIMSK, temp             ;
 
