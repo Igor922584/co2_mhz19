@@ -595,12 +595,12 @@ Rx_TWI_M1:
     rjmp    Rx_TWI_1_bit_test    ; В PB5 "1"- переход на п\п установки "1" во флаг переноса SREG
 
     clc                          ; В переносе 0, записываем данные в РОН приема/передачи
-    ror    data_in_out   
+    rol    data_in_out   
     rjmp   Rx_TWI_M2
 
 Rx_TWI_1_bit_test:
     sec                          ; В PB3 "1"- ставим флаг переноса SREG в "1"
-    ror    data_in_out    
+    rol    data_in_out    
 
 Rx_TWI_M2:
     cbi     PORTD, 2             ; Опускаем линию тактового сигнала
@@ -1064,21 +1064,21 @@ Decoder_BCD:
     ldi     temp, 0b00000001    ; Восстанавливаем значение счетчика включаемого индикатора
     sts     led_counter, temp   ;
 
-;    sts     temp, lpress        ; Данные для распаковки значенияы BCD0 
-;    rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
-;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
-	
-;    sts     temp, hpress        ; Данные для распаковки значения  BCD1
-;    rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
-;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
-
-    lds     temp, lco2          ; Данные для распаковки значенияы BCD0 
+    lds     temp, lpress        ; Данные для распаковки значенияы BCD0 
     rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
     rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
 	
-    lds     temp, hco2          ; Данные для распаковки значения  BCD1
+    lds     temp, hpress        ; Данные для распаковки значения  BCD1
     rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
     rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
+
+;    lds     temp, lco2          ; Данные для распаковки значенияы BCD0 
+;    rcall   Unpacking_BCD       ; Вызов подпрограммы распаковки BCD0
+;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD0
+	
+;    lds     temp, hco2          ; Данные для распаковки значения  BCD1
+;    rcall   Unpacking_BCD       ; Вызов подпрограммы для распаковки BCD1
+;    rcall   Transfer_BCD        ; Вызов подпрограммы для передачи значения BCD1
 
 ;    lds     temp, fract_part    ; Выведение на индикатор дробной части значения температуры
 ;    sts     digit,temp          ;
