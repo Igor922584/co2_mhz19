@@ -229,7 +229,7 @@ RESET:
     sts    sad_w, temp             ;
     ldi    temp, 0xb9              ; Команда SAD+R для LPS331AP (адрес датчика с битом чтения)
     sts    sad_r, temp             ;
-    ldi    temp, 0x68              ; Команда для LPS331AP (адрес ячейки памяти для чтения)
+    ldi    temp, 0xA8              ; Команда для LPS331AP (адрес ячейки памяти для чтения)
     sts    twi_sub, temp           ;
 
 Uart_init:
