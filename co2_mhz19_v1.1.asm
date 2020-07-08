@@ -233,17 +233,17 @@ RESET:
     sts    twi_sub, temp           ;
 
 Uart_init:
+    ldi     temp, (0<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
+    out     UCSRC, temp            ; Формат кадра- 8 бит
+
     ldi     temp, low(bauddivider) ; Инициализация UART
     out     UBRRL, temp            ;
     ldi     temp, high(bauddivider);
     out     UBRRH, temp            ;
 
-    ldi     temp, 0                ; Обнуляем UCSRA, без удвоения скорости обмена
+    ldi     temp, 0x00             ; Обнуляем UCSRA, без удвоения скорости обмена
     out     UCSRA, temp            ;
     
-    ldi     temp, (0<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
-    out     UCSRC, temp            ; Формат кадра- 8 бит
-
 ; TWI init LPS331AP
     sbi     PORTB, 7               ; Включение светодиода индикации передачи данных по TWI
     rcall   Start_TWI              ; Старт на шину TWI
@@ -260,6 +260,7 @@ Uart_init:
     rcall   TWI_Write               ; измерение давления раз а секунду
     rcall   Sak_TWI
     rcall   Stop_TWI                ; 
+    cbi    PORTB, 7                ; Отключаем светодиод и ндикации передачи данных
     
     ldi    temp, 0b00000010        ; Разрешение прерывания по переполнению таймера Т0
     OUT    TIMSK, temp             ;
@@ -386,7 +387,7 @@ TX_UART:
     add     ZL, temp                  ; отправляемого байта
     ldi     temp, 0                   ; Обнуляем значение регистра для сложения с переносом
     adc     ZH, temp                  ; Прибавляем к адресу только перенос
-    ld      temp1, Z                  ; Отправляем для отправки байт в UDR
+    ld     temp1, Z                 ; Отправляем для отправки байт в UDR
     out     UDR, temp1                ;
 
 Ret_Count_tx_uart:
