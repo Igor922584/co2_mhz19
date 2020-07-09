@@ -87,9 +87,9 @@
 ; Объявления =============================================================================================
 .equ	AtBCD0 = 13           ; Adress of tBCD0
 .equ	AtBCD2 = 15           ; Adress of tBCD1
-.equ    XTAL = 8000000        ; Частота МК
-.equ    baudrate = 9600       ; Скорость передачи по UART
-.equ    bauddivider = XTAL/(16*baudrate)-1
+;.equ    XTAL = 8000000        ; Частота МК
+;.equ    baudrate = 9600       ; Скорость передачи по UART
+;.equ    bauddivider = XTAL/(16*baudrate)-1
 
 .def	tBCD0 = r13           ; BCD value digits 1 and 0
 .def	tBCD1 = r14           ; BCD value digits 3 and 2
@@ -147,8 +147,8 @@ twi_sub:           .byte  1        ; Команда адреса ячейки п
     rjmp    OVF1                   ; 0x0005 Timer/Counter1 Overflow
     rjmp    OVF0                   ; 0x0006 Timer/Counter0 Overflow
     rjmp    RX_UART                ; 0x0007 USART, Rx Complete
-    reti    ;rjmp    URXC0         ; 0x0008 UDRE Data register empty
-    rjmp    TX_UART                ; 0x0009 USART, Tx Complete
+    rjmp    TX_UART                ; 0x0008 UDRE Data register empty
+    reti    ;rjmp    TX_UART                ; 0x0009 USART, Tx Complete
     reti    ;rjmp    ANALOG_COMP   ; 0x000A Analog Comparator 
     reti    ;rjmp    PCINT         ; 0x000B Pin change interrupt
     reti    ;rjmp    TIMER1_COMPB  ; 0x000C T1 compare match B
@@ -233,16 +233,23 @@ RESET:
     sts    twi_sub, temp           ;
 
 Uart_init:
-    ldi     temp, (0<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
+    ldi     temp, 0x00
+;    ldi     temp, (0<<RXEN)|(0<<TXEN)|(0<<RXCIE)|(0<<TXCIE)|(0<<UDRIE) 
+    out     UCSRB, temp         ; Запрещаем прием/передачу, прерывания по переполнению
+
+    ldi     temp, 0b10000110
+;    ldi     temp, (0<<UMSEL)|(1<<UCSZ0)|(1<<UCSZ1)
     out     UCSRC, temp            ; Формат кадра- 8 бит
 
-    ldi     temp, low(bauddivider) ; Инициализация UART
-    out     UBRRL, temp            ;
-    ldi     temp, high(bauddivider);
-    out     UBRRH, temp            ;
+;    ldi     temp, low(bauddivider) ; Инициализация UART
+     ldi     temp, 0x33
+     out     UBRRL, temp            ;
+;    ldi     temp, high(bauddivider);
+;    out     UBRRH, temp            ;
 
     ldi     temp, 0x00             ; Обнуляем UCSRA, без удвоения скорости обмена
     out     UCSRA, temp            ;
+    out     UBRRH, temp            ;
     
 ; TWI init LPS331AP
     sbi     PORTB, 7               ; Включение светодиода индикации передачи данных по TWI
@@ -359,7 +366,8 @@ Exit_rx:
     reti
 
 Stop_rx:
-    ldi     temp, (0<<RXEN)|(0<<TXEN)|(0<<RXCIE)|(0<<TXCIE)|(0<<UDRIE) 
+    ldi     temp, 0x00
+;    ldi     temp, (0<<RXEN)|(0<<TXEN)|(0<<RXCIE)|(0<<TXCIE)|(0<<UDRIE) 
     out     UCSRB, temp         ; Запрещаем прием/передачу, прерывания по переполнению
     ldi     temp, 0             ; Восстановление счетчика переданных байтов
     sts     count_rx_uart, temp ;
@@ -406,7 +414,8 @@ Exit_tx:
     reti
 
 Stop_tx:
-    ldi     temp, (1<<RXEN)|(0<<TXEN)|(1<<RXCIE)|(0<<TXCIE)|(0<<UDRIE) 
+    ldi     temp, 0b10010000
+;    ldi     temp, (1<<RXEN)|(0<<TXEN)|(1<<RXCIE)|(0<<TXCIE)|(0<<UDRIE) 
     out     UCSRB, temp         ; Запрещаем передачу, прерывания по опустошению UDR
                                 ; Разрешаем прерывания и прием данных по UART
     cbi     PORTD, 4            ; Откл. светодиода индикации передачи данных по UART
@@ -779,7 +788,8 @@ Tx_Byte_Start_Conv:
     out     TCCR1B, temp       ; задержка ~1 сек.
 
 ; Запуск передачи данных по UART к датчику MH-Z19
-    ldi     temp, (0<<RXEN)|(1<<TXEN)|(0<<RXCIE)|(1<<TXCIE)|(1<<UDRIE) 
+    ldi     temp, 0b00101000
+;    ldi     temp, (0<<RXEN)|(0<<TXEN)|(0<<RXCIE)|(1<<TXCIE)|(1<<UDRIE) 
     out     UCSRB, temp         ; Разрешаем передачу, прерывания по опустошению UDR
 
     ldi     temp, 0b000001000     ; Устанавливаем флаг в позицию ожидания окончания преобразования 
@@ -802,7 +812,8 @@ Folt_Ans_Temp:
 ;    OUT     TIMSK, temp            ;
 
 ; Запуск передачи данных по UART к датчику MH-Z19
-    ldi     temp, (0<<RXEN)|(1<<TXEN)|(0<<RXCIE)|(1<<TXCIE)|(1<<UDRIE) 
+    ldi     temp, 0b00101000
+;    ldi     temp, (0<<RXEN)|(0<<TXEN)|(0<<RXCIE)|(1<<TXCIE)|(1<<UDRIE) 
     out     UCSRB, temp         ; Разрешаем передачу, прерывания по опустошению UDR
 
     ldi     temp, 0b000000010      ; Устанавливаем флаг в позицию ожидания окончания преобразования 
