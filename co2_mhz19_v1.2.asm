@@ -61,17 +61,6 @@
 .def	temp = r23            ; Буфер 0
 .def	tx_rx_count = r20     ; Счетчик количества переданных битов по 1-wire
 .def	data_in_out = r21     ; Передаваемое/принимаемое значение по 1-wire 
-;.def    temp3 = r18
-;.def    temp4 = r19
-;.DEF    rd1l = R0 ; LSB 16-bit-number to be divided   делимое младший
-;.DEF    rd1h = R1 ; MSB 16-bit-number to be divided   делимое старший
-;.DEF    rd1u = R2 ; interim register
-;.DEF    rd2  = R3 ; 8-bit-number to divide with        делитель
-;.DEF    rel  = R4 ; LSB result                         результат младший
-;.DEF    reh  = R5 ; MSB result                         результат старший
-;.DEF    rmp  = R16; multipurpose register for loading
-;.DEF    temp = R17; для временных данных в процессе деления.
-
 
 ; RAM =====================================================================================================
 	.DSEG								
@@ -553,7 +542,6 @@ Rx_TWI_M2:
 
     cbi     PORTD, 2             ; Опускаем линию тактового сигнала
     rcall   TWI_Pause            ; Ждем 1,5 мкс 
-;    sbi     DDRD, 6              ; Ставим PD6 на выход
     ret
 
 ; ===========================================================================================================
@@ -710,8 +698,6 @@ Tx_Byte_Start_Conv:
 
     ldi     temp, 0b00000001   ; Пуск таймера Т1 без предделителя, с коэффициентом 122 (counter2)
     out     TCCR1B, temp       ; задержка ~1 сек.
-
-;    rcall    Decoder_BCD       ; Вызов подпрограммы подготовки и передачи данных на индикатор
 
 ; Запуск передачи данных по UART к датчику MH-Z19
     lds     temp, flag_MH_init  ; Проверка на необходимость изменения диапазона измерения MH-Z19
@@ -900,9 +886,6 @@ Timer1_Init_2_Temp:
 
     ldi     temp, 0b00000100        ; Переход к этапу запроса значения атмосферного давления
     sts     flag_ex_stage, temp     ;
-
-;    rcall    Decoder_BCD           ; Вызов подпрограммы подготовки и передачи данных на индикатор
-
     rjmp    Neg_temp
 
 ;=======================================================================================================
@@ -911,21 +894,6 @@ Timer1_Init_2_Temp:
 Calc_co2:
     lds     temp, rx_uart_mhz+3           ; Значение содержания СО2 в РОН
     lds     temp1, rx_uart_mhz+2          ;
-;    lsl     temp                 ; Умножаем на 3: 1 сдвиг влево+ прибавление исходного числа
-;    rol     temp1                ;
-;    lds     temp3, rx_uart_mhz+3           ; Значение содержания СО2 в РОН
-;    lds     temp4, rx_uart_mhz+2           ;
-;    add     temp, temp3           ;
-;    adc     temp1, temp4          ; сложение с переносом
-     
-;    mov     rd1l, temp        ; значения в РОН используемые п/п деления
-;    mov     rd1H, temp1       ;
-;    ldi     temp, 0x05        ;
-;    mov     rd2, temp         ; 
-;    rcall   div16             ; Вызов п/п деления
-;    mov     temp, rel         ; Результат деления младший и
-;    mov     temp1, reh        ; старший байты
-
     mov     fbinl,temp 
     mov     fbinh, temp1
 
@@ -947,16 +915,6 @@ Set_1:
 End_set_choice:
     ret
 
-;    lds     fbinh, rx_uart_mhz+2   ; Значение концентрации СО2 в регистры РОН для преобразования в BCD
-;    lds     fbinl, rx_uart_mhz+3    ; младший байт
-;    rcall   Bin2BCD16              ; Переход на п/п преобразования числа в BCD
-;    sts     lco2, tBCD0            ; Сохранение упакованого в BCD значения
-;    sts     hco2, tBCD1            ;
-
-;    sts     lco2, temp             ; Сохранение значения в регистрах ОЗУ
-;    sts     hco2, temp1            ;
-    ret                            ; До проверки оконч. времени для преобразования t вывод на LED
-
 ; =======================================================================================================
 ; Сохранение в переменной знака "-" при отрицательном значении температуры
 Neg_Temp:
@@ -973,9 +931,6 @@ Neg_Temp:
 
     rcall    Bin2BCD16             ; Переход на п/п преобразования числа в BCD
     sts      integer_temp, tBCD0   ; Сохраняем упакованное значение температуры для хранения
-
-;    rcall   Convert_CO2
-
     rjmp     Main                  ; Переход к чтению значения АЦП (от датчика СО2)
 
 Convert_Neg_Temp:
@@ -989,9 +944,6 @@ Convert_Neg_Temp:
     ldi     fbinH, 0x00            ; Старший байт  для преобразования int temp в BCD
     rcall   Bin2BCD16              ; Переход на п/п преобразования числа в BCD
     sts     integer_temp, tBCD0    ; Сохраняем упакованное значение температуры для хранения
-
-;    rcall   Convert_CO2
-
     rjmp     Main                  ; Все измерения завершены, возврат в главный цикл
 
 ; ========================================================================================================
@@ -1042,33 +994,6 @@ bBCDx_3:
     brne    bBCDx_3             ; Lopp again if not
     rjmp    bBCDx_1             ; 
 
-;==========================================================================================================
-; Подпрограмма деления 16/8 битных чисел 
-;div16:  clr rd1u ; clear interim register 
-;        clr reh ; clear result (the result registers 
-;        clr rel ; are also used to count to 16 for the 
-;        inc rel ; division steps, is set to 1 at start)
-
-;div8a:  clc ; clear carry-bit
-;        rol rd1l ; rotate the next-upper bit of the number
-;        rol rd1h ; to the interim register (multiply by 2)
-;        rol rd1u
-;        brcs div8b ; a one has rolled left, so subtract
-;       cp rd1u,rd2 ; Division result 1 or 0?
-;       brcs div8c ; jump over subtraction, if smaller
- 
-;div8b:  sub rd1u,rd2; subtract number to divide with
-;        sec ; set carry-bit, result is a 1
-;        rjmp div8d ; jump to shift of the result bit
-  
-;div8c:  clc ; clear carry-bit, resulting bit is a 0
-
-;div8d:  rol rel ; rotate carry-bit into result registers
-;        rol reh
-;        brcc div8a ; as long as zero rotate out of the result
-; registers: go on with the division loop
-; End of the division reached
-;        RET
 ; ==========================================================================================================
 ; Передачи измеренных значений на индикатор (сначала передаются значения содержания СО2, затем темп.
 Decoder_BCD:
@@ -1097,25 +1022,12 @@ Decoder_BCD:
     rjmp    End_indication
 
 Ind_temp:
-;    lds     temp, fract_part    ; Выведение на индикатор дробной части значения температуры
-;    sts     digit,temp          ;
-;    rcall   Decoder   
-                                ;
     lds     temp, integer_temp  ; Выведение на индикатор целой части значения температуры
     rcall   Unpacking_BCD       ;
-;    lds     temp, ldigit        ; Добавляем знак "." для индикации десятичной точки
-;    subi    temp, -10           ;
-;    sts     ldigit, temp        ;
     rcall   Transfer_BCD        ;
-
-;    rcall   Led_On                       ; Вызов п/п изменения включаемого индикатора
-;    lds     data_in_out, indication_sign ; Выведение на индикатор знака "-" при отр. знач. темп.
-;    rcall   SPI_Transfer                 ;
 
 End_indication:
     rcall   Led_Off
-;    sbi     PORTB, 1            ; Ставим защелку сдвигового регистра в 1 для фиксации значения
-;    cbi     PORTB, 1            ; Формируем отрицательный импульс на защелку сдвиг. регистра
     ret
 
 ; =======================================================================================================
